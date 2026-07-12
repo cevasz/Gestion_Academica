@@ -463,7 +463,7 @@ GRANT EXECUTE ON FUNCTION crear_matricula_publica(
 -- Vista: Matrículas completas con información relacionada
 CREATE OR REPLACE VIEW vista_matriculas_completas
 WITH (security_invoker = true) AS
-SELECT 
+SELECT
     m.id,
     m.numero_matricula,
     m.tipo_operacion,
@@ -488,7 +488,7 @@ JOIN acudientes a ON m.acudiente_id = a.id;
 -- Vista: Estadísticas de matrículas por año
 CREATE OR REPLACE VIEW vista_estadisticas_matriculas
 WITH (security_invoker = true) AS
-SELECT 
+SELECT
     ano_lectivo,
     COUNT(*) AS total_matriculas,
     COUNT(CASE WHEN tipo_operacion = 'inscripcion' THEN 1 END) AS inscripciones,
@@ -521,10 +521,10 @@ VALUES ('María García López', '9876543210', 'Madre', '3001234567', 'maria.gar
 
 -- Insertar matrícula de prueba
 INSERT INTO matriculas (
-    numero_matricula, 
-    estudiante_id, 
-    acudiente_id, 
-    tipo_operacion, 
+    numero_matricula,
+    estudiante_id,
+    acudiente_id,
+    tipo_operacion,
     ano_lectivo
 )
 VALUES (
@@ -535,6 +535,95 @@ VALUES (
     2026
 );
 */
+
+-- ============================================
+-- TABLA: calificaciones
+-- ============================================
+CREATE TABLE calificaciones (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    estudiante_id UUID NOT NULL REFERENCES estudiantes(id) ON DELETE CASCADE,
+    materia VARCHAR(100) NOT NULL,
+    periodo VARCHAR(20) NOT NULL CHECK (periodo IN ('1', '2', '3', '4', 'final')),
+    ano_lectivo INTEGER NOT NULL,
+    nota DECIMAL(3,2) CHECK (nota >= 0 AND nota <= 5),
+    tipo VARCHAR(20) DEFAULT 'regular' CHECK (tipo IN ('regular', 'recuperacion', 'nivelacion')),
+    observaciones TEXT,
+    docente VARCHAR(255),
+    fecha_registro TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(estudiante_id, materia, periodo, ano_lectivo, tipo)
+);
+
+-- Índices para calificaciones
+CREATE INDEX idx_calificaciones_estudiante ON calificaciones(estudiante_id);
+CREATE INDEX idx_calificaciones_materia ON calificaciones(materia);
+CREATE INDEX idx_calificaciones_periodo ON calificaciones(periodo);
+CREATE INDEX idx_calificaciones_ano ON calificaciones(ano_lectivo);
+
+-- Trigger para actualizar updated_at en calificaciones
+CREATE TRIGGER update_calificaciones_updated_at
+    BEFORE UPDATE ON calificaciones
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Políticas RLS para calificaciones
+ALTER TABLE calificaciones ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Permitir lectura de calificaciones" ON calificaciones
+    FOR SELECT USING (true);
+
+CREATE POLICY "Permitir inserción de calificaciones" ON calificaciones
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Permitir actualización de calificaciones" ON calificaciones
+    FOR UPDATE USING (true);
+
+-- ============================================
+-- VISTA: calificaciones_completas
+-- ============================================
+CREATE OR REPLACE VIEW vista_calificaciones_completas AS
+SELECT
+    c.id,
+    c.materia,
+    c.periodo,
+    c.ano_lectivo,
+    c.nota,
+    c.tipo,
+    c.observaciones,
+    c.docente,
+    c.fecha_registro,
+    e.id AS estudiante_id,
+    e.nombre_completo AS nombre_estudiante,
+    e.numero_documento,
+    e.grado,
+    e.grupo
+FROM calificaciones c
+JOIN estudiantes e ON c.estudiante_id = e.id
+ORDER BY e.nombre_completo, c.materia, c.periodo;
+
+-- ============================================
+-- FUNCIÓN: Calcular promedio de estudiante
+-- ============================================
+CREATE OR REPLACE FUNCTION calcular_promedio_estudiante(
+    p_estudiante_id UUID,
+    p_materia VARCHAR,
+    p_ano_lectivo INTEGER
+) RETURNS DECIMAL(3,2) AS $$
+DECLARE
+    promedio DECIMAL(3,2);
+BEGIN
+    SELECT AVG(nota) INTO promedio
+    FROM calificaciones
+    WHERE estudiante_id = p_estudiante_id
+    AND materia = p_materia
+    AND ano_lectivo = p_ano_lectivo
+    AND tipo = 'regular'
+    AND nota IS NOT NULL;
+
+    RETURN COALESCE(promedio, 0);
+END;
+$$ LANGUAGE plpgsql;
 
 -- ============================================
 -- TABLA: documentos
@@ -587,7 +676,7 @@ CREATE POLICY "Permitir eliminación de documentos" ON documentos
 -- VISTA: documentos_completos
 -- ============================================
 CREATE OR REPLACE VIEW vista_documentos_completos AS
-SELECT 
+SELECT
     d.id,
     d.tipo_documento,
     d.nombre_archivo,
@@ -613,7 +702,7 @@ ORDER BY d.fecha_carga DESC;
 -- VISTA: estadisticas_documentos
 -- ============================================
 CREATE OR REPLACE VIEW vista_estadisticas_documentos AS
-SELECT 
+SELECT
     tipo_documento,
     COUNT(*) AS total_documentos,
     COUNT(CASE WHEN estado = 'pendiente' THEN 1 END) AS pendientes,

@@ -32,15 +32,3 @@ dist-ssr
 
 # Build
 build/
-
-# Project Custom Ignores
-boletines_generados/
-dist/
-.codex/
-obsidian_export/
-venv_boletines/
-__pycache__/
-*.pyc
-
-# Graphify knowledge graph (local-only brain, never commit)
-graphify-out/
