@@ -1,163 +1,122 @@
-# 🎓 Sistema de Digitalización Institucional
+<div align="center">
 
-[![React](https://img.shields.io/badge/React-18.2-blue.svg)](https://reactjs.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8.svg)](https://tailwindcss.com/)
-[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e.svg)](https://supabase.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+# 🎓 Gestión Académica
 
-Plataforma SaaS para la digitalización y gestión integral de instituciones educativas en Colombia. Sistema multiinstitucional con 4 planes escalonados y módulos especializados por área.
+**Plataforma para digitalizar colegios en Colombia: matrícula, documentos, asistencia, notas y comunicación con las familias, en un solo sistema.**
 
----
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38BDF8?logo=tailwindcss&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL%20%2B%20RLS-3FCF8E?logo=supabase&logoColor=white)
+![Python](https://img.shields.io/badge/Python-ReportLab-3776AB?logo=python&logoColor=white)
+![License](https://img.shields.io/badge/licencia-MIT-green)
 
-## 🗂️ Estructura del Proyecto
-
-```
-proyecto/
-├── frontend/               # Aplicación React + Vite + Tailwind
-│   ├── src/
-│   │   ├── components/     # Módulos funcionales (UI)
-│   │   ├── pages/          # Páginas de nivel superior
-│   │   ├── contexts/       # Estado global (AppContext)
-│   │   ├── constants/      # Configuración de planes y módulos
-│   │   ├── services/       # Capa de acceso a Supabase
-│   │   └── config/         # Configuración de Supabase
-│   ├── index.html
-│   ├── vite.config.js
-│   └── package.json
-│
-├── backend/                # Utilidades Python del servidor
-│   ├── boletines/          # Generador de boletines PDF (ReportLab)
-│   └── generar_boletines.py
-│
-├── supabase_schema.sql     # Schema completo de PostgreSQL
-├── supabase_storage_setup.md
-├── .env.example            # Variables de entorno de referencia
-├── package.json            # Task runner raíz (delega a frontend/)
-└── .agents/                # Reglas y workflows locales para agentes
-```
+</div>
 
 ---
 
-## 🚀 Inicio Rápido
+## Qué resuelve
 
-### Prerrequisitos
+Muchos colegios todavía matriculan en papel, guardan los documentos en carpetas
+físicas y pasan notas en hojas de cálculo. Esta plataforma lo reúne en un mismo
+sistema, pensado para que varias instituciones compartan una instalación y un
+sistema de planes decida qué módulos tiene activos cada colegio.
 
-- Node.js ≥ 18
-- Cuenta en [Supabase](https://supabase.com/)
+## Módulos
 
-### Instalación
+Los siete módulos del plan **Esencial** están implementados:
+
+| Módulo | Qué hace | Componente |
+|---|---|---|
+| 📝 Matrícula digital | Inscripción, renovación y actualización con validación en vivo (documento, celular colombiano, edad entre 3 y 20 años); número de matrícula `AAAA-XXXX` automático | `MatriculaForm.jsx` |
+| 👤 Perfil del estudiante | Datos, acudientes e historial en una vista | `PerfilEstudiante.jsx` |
+| 📁 Gestión documental | Subida de PDF, Word e imágenes (máx. 10 MB), clasificación por tipo, estados pendiente/aprobado/rechazado, filtros | `GestionDocumental.jsx` |
+| ✅ Asistencia | Registro diario por curso | `ControlAsistencia.jsx` |
+| 📊 Calificaciones | Registro de notas por periodo | `RegistroCalificaciones.jsx` |
+| 📣 Comunicados | Avisos a familias y docentes | `Comunicados.jsx` |
+| 📚 Biblioteca digital | Catálogo de recursos | `Biblioteca.jsx` |
+
+Además hay un **generador de boletines en PDF** (Python + ReportLab) en `backend/`.
+
+### Planes
+
+El acceso a módulos se define en `frontend/src/constants/planes.constants.js`:
+
+| Plan | Incluye |
+|---|---|
+| **Esencial** | Los 7 módulos base |
+| **Smart** | + Encuestas, Gobierno escolar, Reconocimientos, Eventos, PQRS, Chatbot |
+| **Campus IA** | + Asistente con IA, OVAs inteligentes, Analítica avanzada, Informes con IA |
+| **Enterprise** | + Agente de WhatsApp, Agente de voz, Analítica predictiva… |
+
+Los módulos de Smart en adelante están modelados en el catálogo pero todavía no implementados.
+
+## Arquitectura
+
+```
+frontend/                 React + Vite + Tailwind
+  components/             un componente por módulo
+  contexts/AppContext     institución y plan activos
+  services/               capa de acceso a Supabase (estudiante, matrícula, documento…)
+backend/
+  generar_boletines.py    boletines PDF con ReportLab
+supabase_schema.sql       tablas, vistas, triggers y políticas RLS
+```
+
+**Permisos en la base de datos:** las políticas Row Level Security de PostgreSQL
+leen el rol del JWT de Supabase (`admin`, `directivo`, `secretaria`, `docente`) y
+deciden quién puede leer, crear o modificar cada tabla. Por ejemplo, un docente
+consulta estudiantes pero solo administración y secretaría los matriculan. La
+matrícula pública entra por una función `SECURITY DEFINER` (`crear_matricula_publica`)
+en lugar de abrir la tabla.
+
+**Auditoría:** unos triggers registran cada cambio de matrícula en `historial_matriculas`.
+
+## Arrancar en local
+
+Requisitos: Node.js 18+ y un proyecto en [Supabase](https://supabase.com).
 
 ```bash
-# Clonar el repositorio
 git clone https://github.com/cevasz/Gestion_Academica.git
 cd Gestion_Academica
 
-# Configurar variables de entorno
-cp .env.example frontend/.env
-# Editar frontend/.env con tus credenciales de Supabase
-
-# Instalar dependencias del frontend
+cp .env.example frontend/.env        # VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY
 npm install --prefix frontend
-
-# Iniciar en modo desarrollo (desde la raíz)
-npm run dev
+npm run dev                          # http://localhost:5173
 ```
 
-### Base de datos
+Base de datos: ejecuta `supabase_schema.sql` en el SQL Editor de Supabase y
+configura el bucket siguiendo [`supabase_storage_setup.md`](supabase_storage_setup.md).
+
+Boletines:
 
 ```bash
-# En el panel de Supabase → SQL Editor, ejecutar:
-supabase_schema.sql
-
-# Configurar Storage según:
-supabase_storage_setup.md
-```
-
----
-
-## ✅ Módulos Implementados — Plan Esencial
-
-| Módulo | Componente | Estado |
-|---|---|---|
-| Matrícula Digital | `MatriculaForm.jsx` | ✅ Completo |
-| Perfil del Estudiante | `PerfilEstudiante.jsx` | ✅ Completo |
-| Gestión Documental | `GestionDocumental.jsx` | ✅ Completo |
-| Control de Asistencia | `ControlAsistencia.jsx` | ✅ Completo |
-| Registro de Calificaciones | `RegistroCalificaciones.jsx` | ✅ Completo |
-| Comunicados | `Comunicados.jsx` | ✅ Completo |
-| Biblioteca Digital | `Biblioteca.jsx` | ✅ Completo |
-
----
-
-## 🔒 Sistema de Planes
-
-El acceso a módulos se controla mediante un sistema de planes escalonados definido en `frontend/src/constants/planes.constants.js`:
-
-| Plan | Módulos | Precio |
-|---|---|---|
-| **Esencial** | Los 7 módulos base | Contactar |
-| **Smart** | + Encuestas, Gobierno Escolar, PQRS, Chatbot… | $4.000.000/mes |
-| **Campus IA** | + Asistente IA, OVAs, Analítica… | $5.500.000/mes |
-| **Enterprise** | + WhatsApp Bot, Firma Digital, API… | $7.000.000/mes |
-
----
-
-## 🗄️ Base de Datos
-
-El schema en `supabase_schema.sql` define:
-
-- **Tablas principales:** `instituciones`, `estudiantes`, `acudientes`, `matriculas`, `documentos`, `calificaciones`
-- **Seguridad:** Row Level Security (RLS) con aislamiento por `institucion_id`
-- **Vistas:** `vista_matriculas_completas`, `vista_calificaciones_completas`
-- **Triggers:** Auditoría automática de cambios
-
----
-
-## 🖨️ Generador de Boletines (Python)
-
-Genera boletines académicos en PDF usando ReportLab:
-
-```bash
-# Instalar dependencias Python
 pip install reportlab
-
-# Generar boletines de ejemplo
-cd /ruta/del/proyecto
-python3 backend/generar_boletines.py            # Ambos ejemplos
-python3 backend/generar_boletines.py --lote     # Lote completo
-python3 backend/generar_boletines.py --uno      # Solo primer estudiante
+python3 backend/generar_boletines.py          # ejemplos
+python3 backend/generar_boletines.py --lote   # lote completo
 ```
 
----
-
-## 🛠️ Comandos
-
-```bash
-npm run dev       # Servidor de desarrollo (http://localhost:5173)
-npm run build     # Build de producción
-npm run preview   # Preview del build
-npm run lint      # Linter ESLint
-```
-
----
-
-## 📚 Documentación Adicional
-
-| Documento | Descripción |
+| Comando | |
 |---|---|
-| [`supabase_schema.sql`](./supabase_schema.sql) | Schema completo de la BD |
-| [`supabase_storage_setup.md`](./supabase_storage_setup.md) | Configuración de Storage |
-| [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Guía de contribución |
-| [`CHANGELOG.md`](./CHANGELOG.md) | Historial de versiones |
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` / `npm run preview` | Build de producción y vista previa |
+| `npm run lint` | ESLint |
+
+## Hoja de ruta
+
+- [x] Siete módulos del plan Esencial
+- [x] Permisos por rol con RLS
+- [x] Boletines PDF
+- [ ] Aislamiento por `institucion_id` en todas las tablas
+- [ ] Inicio de sesión por rol en el frontend
+- [ ] Módulos del plan Smart
+- [ ] Exportación a Excel
+- [ ] Despliegue público de demo
 
 ---
 
-## 🤝 Contribuir
+<div align="center">
 
-Ver [`CONTRIBUTING.md`](./CONTRIBUTING.md) para el flujo de trabajo, convenciones de código y proceso de PR.
+[`CHANGELOG`](CHANGELOG.md) · [`CONTRIBUTING`](CONTRIBUTING.md) · [`LICENSE`](LICENSE) · hecho por <a href="https://github.com/cevasz">@cevasz</a>
 
----
-
-## 📄 Licencia
-
-MIT — Ver [`LICENSE`](./LICENSE) para detalles.
+</div>
